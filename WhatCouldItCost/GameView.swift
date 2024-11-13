@@ -10,11 +10,16 @@ struct GameView : View {
                 RoundHeader(round: round, product: product)
                 WaitingForAnswer(round: round, product: product)
             case .reviewAnswer(round: let round, product: let product, price: let price):
-                reviewAnswer(round: round, product: product, price: price)
+                RoundHeader(round: round, product: product)
+                ReviewAnswer(round: round, product: product, price: price)
             case .finished:
                 finished()
             }
         }
+        .frame(maxWidth: 500)
+        .environment(\.gameActions, game)
+        .padding()
+        .padding(.horizontal)
     }
     
     struct RoundHeader: View {
@@ -28,15 +33,28 @@ struct GameView : View {
                 Text("Round \(round + 1)/5")
                     .font(.headline)
 
-                AsyncImage(url: URL(string: "https://trolley.co.uk/img/product/\(product.productId)")!) { image in
-                    if let image = image.image {
-                        image.resizable()
+                VStack {
+                    AsyncImage(url: URL(string: "https://trolley.co.uk/img/product/\(product.productId)")!) { image in
+                        if let image = image.image {
+                            image.resizable()
+                        } else {
+                            Color.white
+                        }
                     }
+                    .padding()
+                    .aspectRatio(1, contentMode: .fit)
+                    .background(.white)
+                    .clipShape(.rect(cornerRadius: 16))
+                    .frame(maxWidth: 500)
                 }
-                .padding()
-                .frame(maxWidth: 300, maxHeight: 300)
-                .background(.white)
-                .clipShape(.rect(cornerRadius: 16))
+                .scaledToFill()
+
+                Text(product.brand)
+                    .font(.title2.bold())
+
+                Text(product.name)
+                    .font(.body)
+                    .multilineTextAlignment(.center)
             }
         }
     }
@@ -47,39 +65,98 @@ struct GameView : View {
         
         @State private var answer: Decimal = 0
         
-        private var formatter: Formatter {
-            let f = NumberFormatter()
-            f.numberStyle = .decimal
-            f.maximumFractionDigits = 2
-            f.zeroSymbol = ""
-            return f
+        @Environment(\.gameActions) private var actions
+        @Environment(\.notifier) private var notifier
+        
+        private func submitAnswer() {
+            notifier.execute {
+                try actions.submitAnswer(answer)
+            }
         }
         
         var body: some View {
             VStack {
                 Text("How Much Does This Cost?")
-                    .font(.subheadline)
+                    .font(.subheadline.bold())
                     .padding(.top)
                 
                 HStack {
                     Text("£")
-                    TextField("Your Guess", value: $answer, formatter: formatter)
+                    TextField("Your Guess", value: $answer, format: .currency(code: "£"))
                         .textFieldStyle(.plain)
                         .keyboardType(.decimalPad)
                 }
-                .padding()
-                .frame(width: 300)
+                .padding(.horizontal)
+                .frame(height: 50)
                 .background(.white)
                 .clipShape(.rect(cornerRadius: 16))
+                
+                Button(action: submitAnswer) {
+                    Label("Submit", systemImage: "arrow.right")
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(.black)
+                        .foregroundStyle(.white)
+                        .clipShape(.rect(cornerRadius: 16))
+                }
+                .padding(.top)
+                .padding(.top)
 
                 Spacer()
             }
         }
     }
-
-    @ViewBuilder func reviewAnswer(round: Int, product: Product, price: Decimal) -> some View {
+    
+    struct ReviewAnswer: View {
+        let round: Int
+        let product: Product
+        let price: Decimal
         
-        Text("Review")
+        @Environment(\.gameActions) private var actions
+        @Environment(\.notifier) private var notifier
+        
+        private func advanceRound() {
+            notifier.execute {
+                try actions.advanceRound()
+            }
+        }
+        
+        var body: some View {
+            VStack {
+                HStack(alignment: .top) {
+                    VStack {
+                        Text("Your Guess")
+                            .font(.headline)
+                        
+                        Text(price.formatted(.currency(code: "GBP")))
+                            .font(.title.bold())
+                    }
+                    
+                    Spacer()
+
+                    VStack {
+                        Text("Actual Price")
+                            .font(.headline)
+                        
+                        Text(product.actualPrice.formatted(.currency(code: "GBP")))
+                            .font(.title.bold())
+                    }
+                }
+                .padding()
+                
+                Button(action: advanceRound) {
+                    Label("Next", systemImage: "arrow.right")
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(.black)
+                        .foregroundStyle(.white)
+                        .clipShape(.rect(cornerRadius: 16))
+                }
+                .padding(.top)
+
+                Spacer()
+            }
+        }
     }
     
     @ViewBuilder func finished() -> some View {
@@ -98,5 +175,6 @@ struct GameView : View {
             .ignoresSafeArea()
         GameView(game: game)
     }
+    .previewEnvironment()
 }
 #endif

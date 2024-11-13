@@ -6,6 +6,8 @@ final class Game {
     var state: GameState
     var products: [Product]
     var answers: [Decimal]
+
+    var lock: NSLock = .init()
     
     init(type: GameType, products: [Product], answers: [Decimal]) {
         self.type = type
